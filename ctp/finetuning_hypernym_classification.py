@@ -11,10 +11,11 @@ import subprocess
 import sys
 
 from torch.nn import CrossEntropyLoss
-from transformers import AdamW, get_linear_schedule_with_warmup, AutoModelForSequenceClassification, AutoTokenizer
+from transformers import AdamW, get_linear_schedule_with_warmup, CLIPTokenizer
 from transformers.trainer import set_seed
 from typing import List
 
+from modeling_clip_extra import CLIPForSequenceClassification
 sys.path.append('.')
 
 from ctp.metrics import compute_metrics, compute_scores, flat_accuracy
@@ -27,7 +28,8 @@ from ctp.utils import (
     str2bool,
 )
 from ctp.inference.examine_subtrees import run_inference_subtree
-from datasets.model_inputs.dataset import get_dataset
+sys.path.insert(0, '/home/cathychen/')
+from ctp_grounding.datasets.model_inputs.dataset import get_dataset
 
 device = get_device()
 
@@ -103,7 +105,6 @@ def run_validation(test_data,
 
         with torch.no_grad():
             outputs = model(input_ids=b_input_ids,
-                    token_type_ids=None,
                     attention_mask=b_input_mask)[0]
 
         logits = outputs
@@ -164,8 +165,8 @@ def train(
     adam_eps=1e-8,
     seed_val=2020,
 ):
-    tokenizer = AutoTokenizer.from_pretrained(model)
-    model = AutoModelForSequenceClassification.from_pretrained(model)
+    tokenizer = CLIPTokenizer.from_pretrained(model)
+    model = CLIPForSequenceClassification.from_pretrained(model)
 
     if reload_from_checkpoint:
         ckpt_filename = os.path.join(ckpt_dir, ckpt_filename.format(epoch_num=reload_from_epoch_num))
@@ -259,7 +260,6 @@ def train(
             b_labels = batch[2].to(device)
             model.zero_grad()
             outputs = model(b_input_ids,
-                    token_type_ids=None,
                     attention_mask=b_input_mask)[0]
             loss_fct = CrossEntropyLoss()
             loss = loss_fct(outputs.view(-1, num_labels), b_labels.view(-1))
